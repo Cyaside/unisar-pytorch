@@ -39,7 +39,7 @@ class TrainConfig:
     threads: int = 2
     max_seconds: float | None = 3000
     validation_every: int = 1000
-    checkpoint_every: int = 100
+    checkpoint_every: int = 1000
     checkpoint_seconds: float = 180
     max_padded_candidates: int = 4096
     candidate_chunk_size: int = 256
@@ -358,14 +358,15 @@ def train(dataset, config: TrainConfig):
                           "step_seconds": duration, "lr": optimizer.param_groups[0]["lr"]}
                 records.append(record)
                 print(json.dumps(record), flush=True)
-            if step % config.checkpoint_every == 0 or time.perf_counter() - last_save >= config.checkpoint_seconds:
-                save(latest)
-                last_save = time.perf_counter()
             if config.validation_every and step % config.validation_every == 0:
                 save(latest)  # Persist before potentially expensive full validation.
                 validation()
                 last_validated = step
                 save(latest)
+                last_save = time.perf_counter()
+            elif step % config.checkpoint_every == 0 or time.perf_counter() - last_save >= config.checkpoint_seconds:
+                save(latest)
+                last_save = time.perf_counter()
         if step < config.steps and status == "complete":
             status = "bounded_check_complete"
         save(latest)

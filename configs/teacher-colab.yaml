@@ -9,7 +9,7 @@ device: cuda
 threads: 2
 max_seconds: 3000
 validation_every: 1000
-checkpoint_every: 100
+checkpoint_every: 1000
 checkpoint_seconds: 180
 max_padded_candidates: 4096
 candidate_chunk_size: 256

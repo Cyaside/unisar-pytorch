@@ -24,6 +24,8 @@ Preflight estimates parameter and Adam-state memory and measures a real activati
 
 The small public archive is approximately 488 MB; extracted intermediates are several GB. Preparation runs on CPU even in a GPU runtime. Matching serializer pins avoids unnecessary cross-version differences. Reusing the prepared folder avoids repeating preparation after an interruption; the package verifies file hashes before training.
 
+Default snapshots occur every 1,000 updates or 180 seconds, with validation-boundary snapshots taking precedence over an otherwise duplicate periodic save. Large optimizer bundles can make Drive I/O a material part of the time budget; profile that cost in the first session.
+
 ## After the run
 
 Bring back `metrics.json`, `validation-best.json`, the preflight report and the exported weight file, together with the source revision/configuration/data hash. Keep snapshots and dated evidence private. Determine convergence, teacher/student quality and resource tradeoff before distillation. Transition subgroup support may be insufficient; preserve that limitation rather than claiming a conclusive improvement.
