@@ -250,6 +250,23 @@ def train(dataset, config: TrainConfig):
         best, records = extra["best"], extra["records"]
         seen_search, seen_rec, seen_candidates = extra["seen_search"], extra["seen_rec"], extra["seen_candidates"]
         cumulative_seconds = extra["training_seconds"]
+        # best.pt and latest.pt are separately atomic. A disconnect after
+        # best's rename but before latest's rename must not roll selection back.
+        best_path = run_dir / "best.pt"
+        if best_path.exists():
+            selected = torch.load(best_path, map_location="meta", weights_only=False)
+            if (selected["config_hash"] != config_hash or selected["data_hash"] != data_hash
+                    or selected["config"].get("run_id") != config.run_id):
+                raise ValueError("Best checkpoint contract differs from the resumed run")
+            selected_loss = selected["extra"].get("best")
+            if selected_loss is not None and (best is None or selected_loss < best):
+                best = selected_loss
+                # Retain the completed validation event even if latest lacked it.
+                events = [r for r in selected["extra"]["records"] if "validation" in r]
+                for event in events:
+                    if event not in records:
+                        records.append(event)
+            del selected
     elif latest.exists() or (run_dir / "config.json").exists():
         raise FileExistsError("Run exists. Resume it or use a new run_id.")
     else:
@@ -348,6 +365,7 @@ def train(dataset, config: TrainConfig):
                 save(latest)  # Persist before potentially expensive full validation.
                 validation()
                 last_validated = step
+                save(latest)
         if step < config.steps and status == "complete":
             status = "bounded_check_complete"
         save(latest)

@@ -131,3 +131,33 @@ def test_invalid_paths_and_cpu_amp(tmp_path):
             config(tmp_path, run_id=run_id).check()
     with pytest.raises(ValueError, match="AMP"):
         config(tmp_path, amp=True).check()
+
+
+def test_periodic_validation_state_is_in_latest(tmp_path):
+    cfg = config(tmp_path, steps=4, validation_every=2, stop_after=2, validate_at_end=False)
+    train(TinyDataset(), cfg)
+    latest = snapshot(tmp_path / "fixture/latest.pt")
+    best = snapshot(tmp_path / "fixture/best.pt")
+    assert latest["extra"]["best"] == best["extra"]["best"]
+    assert any(r.get("step") == 2 and "validation" in r for r in latest["extra"]["records"])
+
+
+def test_disconnect_between_best_and_latest_keeps_true_best(tmp_path, monkeypatch):
+    import unisar.training as implementation
+    cfg = config(tmp_path, steps=4, validation_every=2, stop_after=2, validate_at_end=False)
+    original_save = implementation.save_checkpoint
+    def disconnect(path, **kwargs):
+        if Path(path).name == "latest.pt" and kwargs["step"] == 2 and kwargs["extra"]["best"] is not None:
+            raise KeyboardInterrupt("simulate hard disconnect after best was persisted")
+        return original_save(path, **kwargs)
+    monkeypatch.setattr(implementation, "save_checkpoint", disconnect)
+    monkeypatch.setattr(implementation, "validate", lambda *a, **k: ({"joint_log_loss": .1}, []))
+    with pytest.raises(KeyboardInterrupt):
+        train(TinyDataset(), cfg)
+    assert snapshot(tmp_path / "fixture/latest.pt")["extra"]["best"] is None
+    assert snapshot(tmp_path / "fixture/best.pt")["extra"]["best"] == .1
+    monkeypatch.setattr(implementation, "save_checkpoint", original_save)
+    monkeypatch.setattr(implementation, "validate", lambda *a, **k: ({"joint_log_loss": .2}, []))
+    report = train(TinyDataset(), replace(cfg, stop_after=None, resume="latest"))
+    assert report["best_validation_joint_log_loss"] == .1
+    assert snapshot(tmp_path / "fixture/best.pt")["step"] == 2

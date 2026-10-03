@@ -2,6 +2,7 @@
 from copy import deepcopy
 import importlib
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 
@@ -98,7 +99,8 @@ def test_verified_checkout_import_must_resolve_to_its_own_source(tmp_path, monke
         lambda command, **k: workflow.TRACE_REVISION + "\n" if command[1] == "rev-parse" else "")
     fake_config, fake_train = object(), object()
     module = SimpleNamespace(__file__=str(root / "src/training/neural.py"),
-                             TrainConfig=fake_config, train=fake_train)
+                             TrainConfig=fake_config, train=fake_train,
+                             save_checkpoint=lambda *a, **k: None, load_checkpoint=lambda *a, **k: {})
     calls = []
     def fake_import(name):
         calls.append(name)
@@ -153,3 +155,30 @@ def test_changed_policy_under_same_run_id_and_unsafe_names_rejected(tmp_path, mo
     for value in ("..", "../outside", "C:/outside", "a/b"):
         with pytest.raises(ValueError, match="safe single"):
             workflow.main(common + ["--run-id", value])
+def test_selected_checkpoint_is_mirrored_to_latest(tmp_path):
+    from types import SimpleNamespace
+    from scripts.run_matched_baseline import install_checkpoint_guard
+    calls = []
+    module = SimpleNamespace(save_checkpoint=lambda path, **kwargs: calls.append((Path(path).name, kwargs)),
+                             load_checkpoint=lambda *args, **kwargs: {})
+    install_checkpoint_guard(module)
+    install_checkpoint_guard(module)
+    module.save_checkpoint(tmp_path / "best.pt", step=12)
+    assert calls == [("best.pt", {"step": 12}), ("latest.pt", {"step": 12})]
+
+
+def test_stale_baseline_selection_is_recovered_without_restoring_best_weights(tmp_path):
+    from types import SimpleNamespace
+    import torch
+    from scripts.run_matched_baseline import install_checkpoint_guard
+    state = {"step": 12, "config_hash": "config", "data_hash": "data", "config": {"run_id": "fixture"},
+             "extra": {"best_joint_loss": .8, "records": []}}
+    event = {"step": 12, "validation": {"joint_log_loss": .2}}
+    selected = {**state, "extra": {"best_joint_loss": .2, "records": [event]}, "models": {"x": torch.ones(2)}}
+    torch.save(selected, tmp_path / "best.pt")
+    module = SimpleNamespace(save_checkpoint=lambda *args, **kwargs: None,
+                             load_checkpoint=lambda *args, **kwargs: state)
+    install_checkpoint_guard(module)
+    result = module.load_checkpoint(tmp_path / "latest.pt")
+    assert result["step"] == 12 and result["extra"]["best_joint_loss"] == .2
+    assert result["extra"]["records"] == [event]

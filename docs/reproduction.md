@@ -136,6 +136,8 @@ Run one setting at a time after resource inspection. A soft session stop still t
 
 ## Checkpoints and exports
 
+The matched baseline launcher adds a checkpoint-selection compatibility guard around the pinned TRACE trainer: a selected snapshot is mirrored to `latest.pt`, and resume reconciles the selection loss from the separately atomic `best.pt`. It changes persistence behavior, not the baseline architecture, objective or schedule. The teacher trainer applies the same durable-selection principle. A hard disconnect can still lose updates since the last completed checkpoint boundary.
+
 Persistent resume bundles contain model, optimizer, scheduler, scaler, sampler and RNG state with data/configuration provenance. Keep them outside Git. Resume the original run identity and configuration; a different model, data policy or selection rule creates a new run. Exact same-device CPU recovery is testable; cross-device floating-point equivalence is not promised.
 
 The final weights export contains the architecture configuration and state dictionary for inference, with no optimizer or internal execution ledger. Exports and resume bundles have different purposes. Validate a reload against the selected model's logits before handoff. Keep labels and raw prediction evidence in ignored run output directories unless separately authorized for release.

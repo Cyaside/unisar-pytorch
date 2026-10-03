@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import torch
 from typing import Any
 
 # File invocation from a source checkout must find the adjacent package even
@@ -139,7 +140,38 @@ def load_trace_training(trace_root: str | Path):
     module = importlib.import_module("src.training.neural")
     if Path(module.__file__).resolve() != root / "src" / "training" / "neural.py":
         raise RuntimeError("Another TRACE src package is already loaded; run this workflow in a fresh Python process")
+    install_checkpoint_guard(module)
     return module.TrainConfig, module.train
+
+
+def install_checkpoint_guard(module):
+    """Keep selection durable without editing the pinned baseline source files."""
+    if getattr(module, "_unisar_selection_guard", False):
+        return
+    original_save, original_load = module.save_checkpoint, module.load_checkpoint
+    def save(path, **kwargs):
+        original_save(path, **kwargs)
+        if Path(path).name == "best.pt":
+            original_save(Path(path).with_name("latest.pt"), **kwargs)
+    def load(path, **kwargs):
+        state = original_load(path, **kwargs)
+        best_path = Path(path).with_name("best.pt")
+        if best_path.exists():
+            selected = torch.load(best_path, map_location="meta", weights_only=False)
+            if (selected["config_hash"] != state["config_hash"] or selected["data_hash"] != state["data_hash"]
+                    or selected["config"].get("run_id") != state["config"].get("run_id")):
+                raise ValueError("Baseline best checkpoint differs from the resumed run contract")
+            candidate = selected["extra"].get("best_joint_loss")
+            previous = state["extra"].get("best_joint_loss")
+            if candidate is not None and (previous is None or candidate < previous):
+                state["extra"]["best_joint_loss"] = candidate
+                for event in selected["extra"].get("records", []):
+                    if "validation" in event and event not in state["extra"]["records"]:
+                        state["extra"]["records"].append(event)
+            del selected
+        return state
+    module.save_checkpoint, module.load_checkpoint = save, load
+    module._unisar_selection_guard = True
 
 
 def parser():
