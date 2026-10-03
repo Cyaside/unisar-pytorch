@@ -26,7 +26,7 @@ def test_cells_syntax_outputs_and_manual_gates():
     for cell in book["cells"]:
         if cell["cell_type"] == "code":
             assert cell["execution_count"] is None and not cell["outputs"]
-    for gate in ("RUN_TEACHER_TRAINING", "RUN_BASELINE_TRAINING"):
+    for gate in ("RUN_TEACHER_TRAINING", "RUN_RESUME_TRAINING", "RUN_BASELINE_TRAINING"):
         code = next(c for c in codes if f"{gate} =" in c)
         tree = ast.parse(code)
         assignment = next(n for n in tree.body if isinstance(n, ast.Assign) and any(
