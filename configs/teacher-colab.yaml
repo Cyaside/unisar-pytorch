@@ -1,0 +1,30 @@
+# First resumable development run, not a claim of convergence or paper parity.
+run_id: teacher-clean-v1
+steps: 10000
+batch_size: 32
+lr: 0.001
+weight_decay: 0.0001
+seed: 42
+device: cuda
+threads: 2
+max_seconds: 3000
+validation_every: 1000
+checkpoint_every: 100
+checkpoint_seconds: 180
+max_padded_candidates: 4096
+candidate_chunk_size: 256
+amp: false
+alignment_weight: 0.1
+transition_weight: 0.1
+temperature: 0.2
+model:
+  embedding_dim: 32
+  hidden_dim: 64
+  heads: 2
+  layers: 1
+  ff_dim: 128
+  dropout: 0.1
+  max_history: 50
+  use_candidate_text: true
+  contrastive_mode: infonce
+

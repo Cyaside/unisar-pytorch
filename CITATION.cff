@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "Please cite the original UniSAR research when using this independent implementation."
+type: software
+title: "unisar-pytorch: an independent UniSAR implementation"
+authors:
+  - name: "Cyaside"
+repository-code: "https://github.com/Cyaside/unisar-pytorch"
+version: "0.1.0"
+preferred-citation:
+  type: conference-paper
+  title: "UniSAR: Modeling User Transition Behaviors between Search and Recommendation"
+  authors:
+    - family-names: "Shi"
+      given-names: "Teng"
+    - family-names: "Si"
+      given-names: "Zihua"
+    - family-names: "Xu"
+      given-names: "Jun"
+    - family-names: "Zhang"
+      given-names: "Xiao"
+    - family-names: "Zang"
+      given-names: "Xiaoxue"
+    - family-names: "Zheng"
+      given-names: "Kai"
+    - family-names: "Leng"
+      given-names: "Dewei"
+    - family-names: "Niu"
+      given-names: "Yanan"
+    - family-names: "Song"
+      given-names: "Yang"
+  collection-title: "Proceedings of the 47th International ACM SIGIR Conference on Research and Development in Information Retrieval"
+  year: 2024
+  doi: "10.1145/3626772.3657811"
+  url: "https://arxiv.org/abs/2404.09520"
